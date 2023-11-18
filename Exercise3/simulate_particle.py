@@ -11,6 +11,18 @@ a and b are hard-coded in the main() method
 and passed to the functions that
 calculate force and potential energy.
 
+This has been ammended to simulate two particles
+following a Morse Potential. Using Symplectic Euler
+and Velocity Verlet integration methods.
+
+Morse Potential is given by
+U(r_1, r_2) = D_e*[-1 + (1-e**(-alpha*(r12 - r_e)))**2]
+where D_e, alpha and r_e are read into using text files.
+
+This simulation produces the wavenumber of oscillation,
+period and frequency of oscillation,
+including the energy and frequency inaccuracy measurements.
+
 Author: Sam Hanson
 Number: s2153833
 
@@ -51,7 +63,7 @@ def morse_force(p1, p2, a, D, r):
     Return the force on a particle in a morse potential.
 
     The force is given by
-        F(r1, r2) = -dV/dx = 2*a*D*((1-e**(-a*(r12-r)))**2)*(e**(-a*(r12-r)))*r12/mag(r12)
+        F(r1, r2) = -dU/dx = 2*a*D*((1-e**(-a*(r12-r)))**2)*(e**(-a*(r12-r)))*r12/mag(r12)
     Parameters
     ----------
     p1 : Particle3D
@@ -98,7 +110,7 @@ def potential_morse(p1, p2, a, D, r):
     Returns morse potential energy between p1 and p2
 
     Potential is given by
-        V(r1, r2) = D*(1-e**(-a*(r12 - r)))**2
+        U(r1, r2) = D*[-1 + (1-e**(-a*(r12 - r)))**2]
 
     Parameters
     ----------
@@ -122,7 +134,7 @@ def potential_morse(p1, p2, a, D, r):
 
 def calc_period(positions, time_units, dt):
     """
-    Calculates the period using scipy.signal.find_peaks. 
+    Calculates the period using scipy.signal.find_peaks.
 
     Parameters
     ----------
@@ -136,7 +148,7 @@ def calc_period(positions, time_units, dt):
     # finds all peaks in positions list and takes the time coordinate
     peak, _ = ss.find_peaks(positions)
     # changing array to numpy array
-    peak = np.array(peak)  
+    peak = np.array(peak)
     diff_list = []
     for i in range(1, len(peak)):
         # time difference between peak[i - 1] and peak[i] for all peaks
@@ -187,28 +199,29 @@ def frequency_accuracy(mode, test, v):
 
     Returns
     -------
-    delta : Change in frequency between frequency at current timestep and dt = 1e-5
+    delta : Change in frequency between frequency at current dt and dt = 1e-5
 
     """
     if mode == "euler":
         if test == "test1_oxygen.txt":
-            delta = abs(v - 45735156621870.38)
+            v0 = 45735156621870.38
         elif test == "test1_nitrogen.txt":
-            delta = abs(v - 68563469984165.64)
+            v0 = 68563469984165.64
         elif test == "test2_oxygen.txt":
-            delta = abs(v - 41497230094680.07)
+            v0 = 41497230094680.07
         elif test == "test2_nitrogen.txt":
-            delta = abs(v - 65621183752027.78)
+            v0 = 65621183752027.78
     elif mode == "verlet":
         if test == "test1_oxygen.txt":
-            delta = abs(v - 45735175980904.47)
+            v0 = 45735175980904.47
         elif test == "test1_nitrogen.txt":
-            delta = abs(v - 68563498136387.71)
+            v0 = 68563498136387.71
         elif test == "test2_oxygen.txt":
-            delta = abs(v - 41497230094680.07)
+            v0 = 41497230094680.07
         elif test == "test2_nitrogen.txt":
-            delta = abs(v - 65621183752027.78)
-    return delta/v
+            v0 = 65621183752027.78
+    delta = abs(v - v0)/v0
+    return delta
 
 
 def energy_accuracy(energies, mode):
@@ -289,7 +302,7 @@ def main():
     #    the name of the output file the user wants to write to
     # So we start by checking that all three are specified and quit if not,
     # after giving the user a helpful error message.
-    if len(sys.argv) != 5 :
+    if len(sys.argv) != 5:
         print("You left out inputs when running.")
         print("In spyder, run like this instead:")
         print(f"    %run {sys.argv[0]} <euler or verlet> <desired output file> <desired input file> <dt>")
@@ -348,7 +361,7 @@ def main():
             # Update particle velocity
             p1.update_velocity(dt, force)
             p2.update_velocity(dt, (-1)*force)
-            
+
         elif mode == "verlet":
             # Update particle position using previous force
             p1.update_position_2nd(dt, force)
@@ -361,7 +374,7 @@ def main():
             # current and new forces
             p1.update_velocity(dt, 0.5*(force + force_new))
             p2.update_velocity(dt, -0.5*(force + force_new))
-            
+
             # Re-define force value for the next iteration
             force = force_new
         else:
@@ -369,7 +382,7 @@ def main():
 
         # Increase time
         time += dt
-        
+
         # Output particle information
         energy = p1.kinetic_energy() + potential_morse(p1, p2, a, D, r) + p2.kinetic_energy()
         outfile.write(f"{time} {p1.position}   {p2.position} {energy}\n")
@@ -387,7 +400,7 @@ def main():
         sc.value("Angstrom star"))*math.sqrt(
                  sc.value("atomic mass constant")/sc.value("electron volt"))
     period = calc_period(positions, time_units, dt)
-    print(f"Wavenumber = {wavenumber(period):.04} 1/cm")
+    print(f"Wavenumber = {round(wavenumber(period), 0)} 1/cm")
 
     # Energy inaccuarcy
     print(f"Energy inaccuracy = {100*energy_accuracy(energies, mode):.03} %")
@@ -428,7 +441,7 @@ def main():
         # Units = 10**-10 * sqrt(amu / eV) = time_units
         pyplot.xlabel(f'Time (t = {time_units:.03} s)')
         # Position units = 10**-10 m
-        pyplot.ylabel('Position (10**-10 m)')  
+        pyplot.ylabel('Position (10**-10 m)')
         pyplot.plot(times, positions)
         pyplot.show()
 
